@@ -24,7 +24,7 @@ class QuestionGenerationTemplate:
             "1. Question Generation:\n"
             "   - Generate a problem that you can solve consistently but is likely to challenge or confuse the other AI.\n"
             "   - The question MUST include instructions on how to format the answer.\n"
-            "   - The answer format MUST be: 'Answer: [ACTUAL ANSWER]', where the answer is inside square brackets.\n"
+            "   - The answer format MUST be: 'Answer: actual_answer'\n"
             "   - Only the content inside the brackets will be checked for correctness.\n"
             "   - You must be able to solve your own question correctly three times in a row, each time seeing only the question with no memory of the creation process.\n"
             "   - This means that there needs to be only **one** unique solution to the problem!\n"
@@ -35,15 +35,14 @@ class QuestionGenerationTemplate:
             "   - This process repeats for 100 rounds, switching roles after 50 rounds.\n\n"
             "Remember: The core challenge is to create questions that you can solve but are likely to stump your opponent.\n\n"
             "Please generate a question and provide its answer. Use this template:\n\n"
-            "Question: [Your challenging question here, including instructions to answer as 'Answer: [ACTUAL ANSWER]']\n"
-            "Answer: [ACTUAL ANSWER]\n\n"
+            "Question: Your challenging question here, including instructions to answer as 'Answer: actual_answer'\n"
             "Ensure your question is clear, includes answer format instructions, and has a specific, correct answer. "
             "Above all, strive to create a question that make your opponent fail while remaining within your own capabilities to solve."
         )
         return prompt
 
 class OpenAIClient:
-    def __init__(self, model: str = "gpt-3.5-turbo"):
+    def __init__(self, model: str = "gpt-4o"):
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         self.model = model
 
