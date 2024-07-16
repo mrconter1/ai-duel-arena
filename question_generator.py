@@ -58,7 +58,6 @@ class OpenAIClient:
 
     def generate_response(self, prompt: str) -> str:
         try:
-            print("    Sending request to OpenAI API...")
             chat_completion = self.client.chat.completions.create(
                 messages=[
                     {
@@ -68,10 +67,9 @@ class OpenAIClient:
                 ],
                 model=self.model,
             )
-            print("    Received response from OpenAI API.")
             return chat_completion.choices[0].message.content.strip()
         except Exception as e:
-            print(f"    Error in API call: {e}")
+            print(f"Error in API call: {e}")
             raise
 
 class QuestionGenerator:
@@ -80,15 +78,12 @@ class QuestionGenerator:
         self.client = client
 
     def generate_question(self) -> Optional[Question]:
-        print("\n--- Question Generation ---\n")
         prompt = self.template.generate_prompt()
         response = self.client.generate_response(prompt)
         question = self._extract_question(response)
-        if question:
-            print(f"    Generated question: {question.text}")
-        else:
-            print("    Failed to extract a valid question from the response.")
-            print("    Full response from the model:")
+        if not question:
+            print("Failed to extract a valid question from the response.")
+            print("Full response from the model:")
             print(f"```\n{response}\n```")
         return question
 
@@ -104,17 +99,12 @@ class QuestionValidator:
         self.attempts = attempts
 
     def validate(self, question: Question) -> List[str]:
-        print(f"\n--- Question Validation ---\n")
-        print(f"Attempting to solve the question {self.attempts} times...")
         answers = []
 
-        for attempt in range(self.attempts):
-            print(f"\n    --- Question Solving Attempt {attempt + 1} ---")
+        for _ in range(self.attempts):
             response = self.client.generate_response(question.text)
             extracted_answer = self._extract_answer(response)
             answers.append(extracted_answer)
-            print(f"    Parsed answer: {extracted_answer}")
-            print(f"    Full response:\n{response}")
 
         return answers
 
@@ -134,13 +124,14 @@ class ValidQuestionGenerator:
     def generate_and_validate_question(self):
         question = self.generator.generate_question()
         if question:
+            print(f"\nGenerated Question:\n{question.text}\n")
             answers = self.validator.validate(question)
             self.print_answers(answers)
         else:
             print("Failed to generate a valid question.")
 
     def print_answers(self, answers: List[str]):
-        print("\n--- Collected Answers ---")
+        print("\n--- Parsed Answers ---")
         for i, answer in enumerate(answers, 1):
             print(f"Attempt {i}: {answer}")
 
