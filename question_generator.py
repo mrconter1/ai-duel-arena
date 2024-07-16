@@ -1,4 +1,4 @@
-class QuestionGenerator:
+class QuestionGenerationTemplate:
     def __init__(self):
         pass
 
@@ -32,7 +32,7 @@ class QuestionGenerator:
         return prompt
 
 def main():
-    generator = QuestionGenerator()
+    generator = QuestionGenerationTemplate()
     prompt = generator.generate_prompt()
     print("Generated prompt:")
     print(prompt)
