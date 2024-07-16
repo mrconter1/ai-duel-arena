@@ -1,13 +1,13 @@
 import os
 from openai import OpenAI
-from typing import Optional
+from typing import Optional, List
 from dataclasses import dataclass
 import re
 
 @dataclass
 class Question:
     text: str
-    answer: str
+    answer: Optional[str] = None
 
 class QuestionGenerationTemplate:
     def __init__(self):
@@ -73,25 +73,19 @@ class QuestionGenerator:
         print("\n--- Question Generation ---\n")
         prompt = self.template.generate_prompt()
         response = self.client.generate_response(prompt)
-        question = self._extract_question_and_answer(response)
+        question = self._extract_question(response)
         if question:
             print(f"    Generated question: {question.text}")
-            print(f"    Expected answer: {question.answer}")
         else:
-            print("    Failed to extract a valid question and answer from the response.")
+            print("    Failed to extract a valid question from the response.")
             print("    Full response from the model:")
             print(f"```\n{response}\n```")
         return question
 
-    def _extract_question_and_answer(self, response: str) -> Optional[Question]:
+    def _extract_question(self, response: str) -> Optional[Question]:
         question_match = re.search(r"Question:\s*(.*?)(?=\nAnswer:)", response, re.DOTALL)
-        answer_match = re.search(r"Answer:\s*(.*?)$", response, re.MULTILINE)
-
-        if question_match and answer_match:
-            return Question(
-                text=question_match.group(1).strip(),
-                answer=answer_match.group(1).strip()
-            )
+        if question_match:
+            return Question(text=question_match.group(1).strip())
         return None
 
 class QuestionValidator:
@@ -99,16 +93,20 @@ class QuestionValidator:
         self.client = client
         self.attempts = attempts
 
-    def validate(self, question: Question):
+    def validate(self, question: Question) -> List[str]:
         print(f"\n--- Question Validation ---\n")
         print(f"Attempting to solve the question {self.attempts} times...")
+        answers = []
 
         for attempt in range(self.attempts):
             print(f"\n    --- Question Solving Attempt {attempt + 1} ---")
             response = self.client.generate_response(question.text)
             extracted_answer = self._extract_answer(response)
+            answers.append(extracted_answer)
             print(f"    Parsed answer: {extracted_answer}")
             print(f"    Full response:\n{response}")
+
+        return answers
 
     def _extract_answer(self, response: str) -> str:
         answer_match = re.search(r"Answer:\s*(.*?)$", response, re.MULTILINE)
@@ -126,9 +124,15 @@ class ValidQuestionGenerator:
     def generate_and_validate_question(self):
         question = self.generator.generate_question()
         if question:
-            self.validator.validate(question)
+            answers = self.validator.validate(question)
+            self.print_answers(answers)
         else:
             print("Failed to generate a valid question.")
+
+    def print_answers(self, answers: List[str]):
+        print("\n--- Collected Answers ---")
+        for i, answer in enumerate(answers, 1):
+            print(f"Attempt {i}: {answer}")
 
 def main():
     question_generator = ValidQuestionGenerator()
