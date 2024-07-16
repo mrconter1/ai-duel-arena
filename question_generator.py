@@ -24,17 +24,21 @@ class QuestionGenerationTemplate:
             "1. Question Generation:\n"
             "   - Generate a problem that you can solve consistently but is likely to challenge or confuse the other AI.\n"
             "   - You must be able to solve your own question correctly three times in a row, each time seeing only the question with no memory of the creation process.\n"
-            "   - This means that there needs to be only **one** unique solution to the problem!\n"
+            "   - CRITICAL: There MUST be only ONE single, unique, and EXACT answer to the problem. The question should be designed in a way that allows for only one precise solution.\n"
             "2. Opponent's Turn:\n"
             "   - Your opponent will attempt to solve the problem you've created.\n"
             "   - They succeed if they solve it correctly three times in a row.\n"
             "3. Iteration:\n"
             "   - This process repeats for 100 rounds, switching roles after 50 rounds.\n\n"
-            "Remember: The core challenge is to create questions that you can solve but are likely to stump your opponent.\n\n"
+            "Remember: The core challenge is to create questions that you can solve but are likely to stump your opponent, while ensuring there's only one correct answer.\n\n"
             "Please generate a challenging question from any domain of knowledge or type of intelligence. "
             "Ensure your question is clear and has a specific, correct answer. "
             "Above all, strive to create a question that makes your opponent fail while remaining within your own capabilities to solve.\n\n"
-            "IMPORTANT: Enclose your question within [Question Start] and [Question End] tags."
+            "IMPORTANT: Enclose your question within [Question Start] and [Question End] tags.\n\n"
+            "Also, include a brief description of the expected answer format within [Answer Format Start] and [Answer Format End] tags. "
+            "This description should guide the respondent on how to structure their answer, but should not give away the solution. "
+            "Make sure to explicitly state that the final answer must be enclosed within [Answer Start] and [Answer End] tags, "
+            "and emphasize that there must be only one correct, exact answer."
         )
         return prompt
 
@@ -63,29 +67,26 @@ class QuestionGenerator:
     def __init__(self, template: QuestionGenerationTemplate, client: OpenAIClient):
         self.template = template
         self.client = client
-        self.instruction = (
-            "Provide your answer in the format 'Answer: your_answer_here'. "
-            "Your answer must be in plain text only. Do not include any surrounding characters, formatting symbols, "
-            "markup (such as LaTeX, Markdown, or HTML), or any other special characters or symbols that are not part of the actual answer."
-        )
 
     def generate_question(self) -> Optional[Question]:
         prompt = self.template.generate_prompt()
         response = self.client.generate_response(prompt)
-        question = self._extract_question(response)
+        question, answer_format = self._extract_question_and_format(response)
         if question:
-            question.text += f"\n\n{self.instruction}"
+            question.text += f"\n\n{answer_format}"
         else:
             print("Failed to extract a valid question from the response.")
             print("Full response from the model:")
             print(f"```\n{response}\n```")
         return question
 
-    def _extract_question(self, response: str) -> Optional[Question]:
+    def _extract_question_and_format(self, response: str) -> tuple[Optional[Question], str]:
         question_match = re.search(r'\[Question Start\](.*?)\[Question End\]', response, re.DOTALL)
-        if question_match:
-            return Question(text=question_match.group(1).strip())
-        return None
+        format_match = re.search(r'\[Answer Format Start\](.*?)\[Answer Format End\]', response, re.DOTALL)
+        
+        if question_match and format_match:
+            return Question(text=question_match.group(1).strip()), format_match.group(1).strip()
+        return None, ""
 
 class QuestionValidator:
     def __init__(self, client: OpenAIClient, attempts: int = 5):
@@ -103,7 +104,7 @@ class QuestionValidator:
         return answers
 
     def _extract_answer(self, response: str) -> str:
-        answer_match = re.search(r"Answer:\s*(.*?)$", response, re.MULTILINE)
+        answer_match = re.search(r"\[Answer Start\](.*?)\[Answer End\]", response, re.DOTALL)
         if answer_match:
             return answer_match.group(1).strip()
         return "No answer found in the correct format"
