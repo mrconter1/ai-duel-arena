@@ -23,17 +23,6 @@ class QuestionGenerationTemplate:
             "How rounds are played:\n"
             "1. Question Generation:\n"
             "   - Generate a problem that you can solve consistently but is likely to challenge or confuse the other AI.\n"
-            "   - The question MUST include EXPLICIT instructions on how to format the answer.\n"
-            "   - The answer format MUST be: 'Answer: actual_answer'\n"
-            "   - Only the content after 'Answer: ' will be checked for correctness.\n"
-            "   - CRITICAL: Your question MUST EXPLICITLY STATE that the answer should NOT include any surrounding characters, formatting symbols, or markup of any kind. This includes, but is not limited to:\n"
-            "     * Asterisks (*)\n"
-            "     * Quotes (' or \")\n"
-            "     * LaTeX formatting (e.g., \\text{} or \\frac{}{})\n"
-            "     * Markdown formatting\n"
-            "     * HTML tags\n"
-            "     * Any other special characters or symbols that are not part of the actual answer\n"
-            "   - The answer should be in plain text format only.\n"
             "   - You must be able to solve your own question correctly three times in a row, each time seeing only the question with no memory of the creation process.\n"
             "   - This means that there needs to be only **one** unique solution to the problem!\n"
             "2. Opponent's Turn:\n"
@@ -42,12 +31,10 @@ class QuestionGenerationTemplate:
             "3. Iteration:\n"
             "   - This process repeats for 100 rounds, switching roles after 50 rounds.\n\n"
             "Remember: The core challenge is to create questions that you can solve but are likely to stump your opponent.\n\n"
-            "Please generate a question and provide its answer. Use this template:\n\n"
-            "Question: Your challenging question here. INCLUDE THIS EXACT INSTRUCTION: 'Provide your answer in the format 'Answer: your_answer_here'. "
-            "Your answer must be in plain text only. Do not include any surrounding characters, formatting symbols, markup (such as LaTeX, Markdown, or HTML), "
-            "or any other special characters or symbols that are not part of the actual answer.'\n\n"
-            "Ensure your question is clear, includes the mandatory answer format instructions, and has a specific, correct answer. "
-            "Above all, strive to create a question that makes your opponent fail while remaining within your own capabilities to solve."
+            "Please generate a challenging question from any domain of knowledge or type of intelligence. "
+            "Ensure your question is clear and has a specific, correct answer. "
+            "Above all, strive to create a question that makes your opponent fail while remaining within your own capabilities to solve.\n\n"
+            "IMPORTANT: Enclose your question within [Question Start] and [Question End] tags."
         )
         return prompt
 
@@ -76,19 +63,26 @@ class QuestionGenerator:
     def __init__(self, template: QuestionGenerationTemplate, client: OpenAIClient):
         self.template = template
         self.client = client
+        self.instruction = (
+            "Provide your answer in the format 'Answer: your_answer_here'. "
+            "Your answer must be in plain text only. Do not include any surrounding characters, formatting symbols, "
+            "markup (such as LaTeX, Markdown, or HTML), or any other special characters or symbols that are not part of the actual answer."
+        )
 
     def generate_question(self) -> Optional[Question]:
         prompt = self.template.generate_prompt()
         response = self.client.generate_response(prompt)
         question = self._extract_question(response)
-        if not question:
+        if question:
+            question.text += f"\n\n{self.instruction}"
+        else:
             print("Failed to extract a valid question from the response.")
             print("Full response from the model:")
             print(f"```\n{response}\n```")
         return question
 
     def _extract_question(self, response: str) -> Optional[Question]:
-        question_match = re.search(r"Question:\s*(.*?)(?=\nAnswer:)", response, re.DOTALL)
+        question_match = re.search(r'\[Question Start\](.*?)\[Question End\]', response, re.DOTALL)
         if question_match:
             return Question(text=question_match.group(1).strip())
         return None
@@ -124,7 +118,7 @@ class ValidQuestionGenerator:
     def generate_and_validate_question(self):
         question = self.generator.generate_question()
         if question:
-            print(f"\nGenerated Question:\n{question.text}\n")
+            print(f"\nGenerated Question:\n{question.text}")
             answers = self.validator.validate(question)
             self.print_answers(answers)
         else:
