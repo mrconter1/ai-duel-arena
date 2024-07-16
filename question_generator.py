@@ -38,7 +38,7 @@ class QuestionGenerationTemplate:
             "Also, include a brief description of the expected answer format within [Answer Format Start] and [Answer Format End] tags. "
             "This description should guide the respondent on how to structure their answer, but should not give away the solution. "
             "Make sure to explicitly state that the final answer must be enclosed within [Answer Start] and [Answer End] tags, "
-            "and emphasize that there must be only one correct, exact answer."
+            "and emphasize that there are only one correct, exact answer."
         )
         return prompt
 
