@@ -49,7 +49,7 @@ class OpenAIClient:
 
     def generate_response(self, prompt: str) -> str:
         try:
-            print("Sending request to OpenAI API...")
+            print("    Sending request to OpenAI API...")
             chat_completion = self.client.chat.completions.create(
                 messages=[
                     {
@@ -59,10 +59,10 @@ class OpenAIClient:
                 ],
                 model=self.model,
             )
-            print("Received response from OpenAI API.")
+            print("    Received response from OpenAI API.")
             return chat_completion.choices[0].message.content.strip()
         except Exception as e:
-            print(f"Error in API call: {e}")
+            print(f"    Error in API call: {e}")
             raise
 
 class QuestionGenerator:
@@ -71,20 +71,23 @@ class QuestionGenerator:
         self.client = client
 
     def generate_question(self) -> Optional[Question]:
-        print("\nGenerating a new question...")
+        print("\n--- Question Creation and Validation ---\n")
         prompt = self.template.generate_prompt()
         response = self.client.generate_response(prompt)
         question = self._extract_question_and_answer(response)
         if question:
-            print(f"Generated question: {question.text}")
-            print(f"Expected answer: {question.answer}")
+            question.text += "\n\nAnswer in the format: 'Answer: your_answer_here'"
+            print(f"    Generated question: {question.text}")
+            print(f"    Expected answer: {question.answer}")
         else:
-            print("Failed to extract a valid question and answer from the response.")
+            print("    Failed to extract a valid question and answer from the response.")
+            print("    Full response from the model:")
+            print(f"```\n{response}\n```")
         return question
 
     def _extract_question_and_answer(self, response: str) -> Optional[Question]:
         question_match = re.search(r"Question:\s*(.*?)(?=\nAnswer:)", response, re.DOTALL)
-        answer_match = re.search(r"Answer:\s*\[(.*?)\]", response, re.DOTALL)
+        answer_match = re.search(r"Answer:\s*(.*?)$", response, re.MULTILINE)
 
         if question_match and answer_match:
             return Question(
@@ -99,55 +102,56 @@ class QuestionValidator:
         self.attempts = attempts
 
     def validate(self, question: Question) -> bool:
-        print(f"\nValidating question: {question.text}")
-        print(f"Expected answer: {question.answer}")
-        print(f"Attempting to solve the question {self.attempts} times...")
+        print(f"    Attempting to solve the question {self.attempts} times...")
 
         correct_answers = 0
         for attempt in range(self.attempts):
-            print(f"\nAttempt {attempt + 1}:")
+            print(f"\n    --- Question Solving Attempt {attempt + 1} ---")
             response = self.client.generate_response(question.text)
-            if self._check_answer(response, question.answer):
-                print("Correct answer!")
+            extracted_answer = self._extract_answer(response)
+            if self._check_answer(extracted_answer, question.answer):
+                print("    Result: Correct answer!")
                 correct_answers += 1
             else:
-                print(f"Incorrect answer. Expected: {question.answer}")
-                print(f"Received: {self._extract_answer(response)}")
+                print(f"    Result: Incorrect answer.")
+                print(f"    Expected: {question.answer}")
+                print(f"    Received: {extracted_answer}")
+                print(f"    Full response:\n{response}")
                 return False
         
-        print(f"\nValidation successful! Correct answers: {correct_answers}/{self.attempts}")
+        print(f"\n    Validation successful! Correct answers: {correct_answers}/{self.attempts}")
         return correct_answers == self.attempts
 
-    def _check_answer(self, response: str, expected_answer: str) -> bool:
-        answer_match = re.search(r"Answer:\s*\[(.*?)\]", response, re.DOTALL)
-        if answer_match:
-            return answer_match.group(1).strip().lower() == expected_answer.lower()
-        return False
-
     def _extract_answer(self, response: str) -> str:
-        answer_match = re.search(r"Answer:\s*\[(.*?)\]", response, re.DOTALL)
+        answer_match = re.search(r"Answer:\s*(.*?)$", response, re.MULTILINE)
         if answer_match:
             return answer_match.group(1).strip()
         return "No answer found in the correct format"
 
+    def _check_answer(self, received_answer: str, expected_answer: str) -> bool:
+        return received_answer.lower() == expected_answer.lower()
+
 class ValidQuestionGenerator:
-    def __init__(self, model: str = "gpt-3.5-turbo"):
+    def __init__(self, model: str = "gpt-4o"):
         self.template = QuestionGenerationTemplate()
         self.client = OpenAIClient(model)
         self.generator = QuestionGenerator(self.template, self.client)
         self.validator = QuestionValidator(self.client)
 
     def generate_valid_question(self) -> Optional[Question]:
-        max_attempts = 10
+        max_attempts = 1
         print(f"Attempting to generate a valid question (max {max_attempts} attempts)...")
         for attempt in range(max_attempts):
-            print(f"\nAttempt {attempt + 1}:")
+            print(f"\n=== Question Generation Attempt {attempt + 1} ===")
             question = self.generator.generate_question()
-            if question and self.validator.validate(question):
-                print(f"\nValid question generated on attempt {attempt + 1}!")
-                return question
+            if question:
+                if self.validator.validate(question):
+                    print(f"\nValid question generated on attempt {attempt + 1}!")
+                    return question
+                else:
+                    print("Question validation failed. Trying again...")
             else:
-                print("Question validation failed. Trying again...")
+                print("Failed to generate a valid question. Trying again...")
         print("\nFailed to generate a valid question after maximum attempts.")
         return None
 
@@ -156,7 +160,7 @@ def main():
     
     valid_question = question_generator.generate_valid_question()
     if valid_question:
-        print("\nFinal Generated Valid Question:")
+        print("\n=== Final Generated Valid Question ===")
         print(f"Question: {valid_question.text}")
         print(f"Answer: {valid_question.answer}")
     else:
